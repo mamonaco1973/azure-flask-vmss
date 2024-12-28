@@ -1,0 +1,14 @@
+[Unit]
+Description=Flask Application Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/flask/start_flask_app.sh
+Restart=on-failure
+User=root
+Group=root
+Environment="PATH=/usr/bin:/bin:/flash"
+
+[Install]
+WantedBy=multi-user.target
