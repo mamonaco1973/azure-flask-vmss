@@ -12,7 +12,7 @@ all_found=true
 # Iterate through each command and check if it's available
 for cmd in "${commands[@]}"; do
   if ! command -v "$cmd" &> /dev/null; then
-    echo "ERROR: $cmd is not foundin the current PATH."
+    echo "ERROR: $cmd is not found in the current PATH."
     all_found=false
   else
     echo "NOTE: $cmd is found in the current PATH."
