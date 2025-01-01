@@ -146,7 +146,7 @@ resource "azurerm_monitor_autoscale_setting" "flask_vmss_autoscale" {
         metric_resource_id = azurerm_linux_virtual_machine_scale_set.flask_vmss.id # Metric resource ID
         operator           = "GreaterThan"                                         # Comparison operator
         statistic          = "Average"                                             # Statistic used
-        threshold          = 80                                                    # Threshold for scaling
+        threshold          = 60                                                    # Threshold for scaling
         time_grain         = "PT1M"                                                # Granularity
         time_window        = "PT1M"                                                # Time window
         time_aggregation   = "Average"                                             # Aggregation type
@@ -156,7 +156,7 @@ resource "azurerm_monitor_autoscale_setting" "flask_vmss_autoscale" {
         direction = "Increase"                     # Scale direction
         type      = "ChangeCount"                  # Scale type
         value     = "1"                            # Change count
-        cooldown  = "PT5M"                         # Cooldown period
+        cooldown  = "PT1M"                         # Cooldown period
       }
     }
 
@@ -167,9 +167,9 @@ resource "azurerm_monitor_autoscale_setting" "flask_vmss_autoscale" {
         metric_resource_id = azurerm_linux_virtual_machine_scale_set.flask_vmss.id # Metric resource ID
         operator           = "LessThan"                                            # Comparison operator
         statistic          = "Average"                                             # Statistic used
-        threshold          = 5                                                     # Threshold for scaling
-        time_grain         = "PT1M"                                                # Granularity
-        time_window        = "PT1M"                                                # Time window
+        threshold          = 60                                                    # Threshold for scaling
+        time_grain         = "PT5M"                                                # Granularity
+        time_window        = "PT5M"                                                # Time window
         time_aggregation   = "Average"                                             # Aggregation type
       }
 
