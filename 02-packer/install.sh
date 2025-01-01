@@ -22,7 +22,7 @@ chmod +x /flask/test_candidates.py
 sudo apt update -y
 sudo apt install -y python3-pip stress dos2unix
 
-# Even out any widows LF issues
+# Even out any windows LF issues
 
 dos2unix /flask/start_flask_app.sh
 dos2unix /flask/app.py
