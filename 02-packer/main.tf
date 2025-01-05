@@ -59,7 +59,7 @@ data "azurerm_ssh_public_key" "flask_vmss_key" {
 
 # Retrieve the Cosmos DB account details
 data "azurerm_cosmosdb_account" "candidate_account" {
-  name                = "candidates-${substr(data.azurerm_client_config.current.subscription_id, 0, 6)}" # Cosmos DB account name
+  name                = "candidates-${substr(data.azurerm_client_config.current.subscription_id, 0, 8)}" # Cosmos DB account name
   resource_group_name = data.azurerm_resource_group.flask_vmss_rg.name                                   # Resource group name
 }
 

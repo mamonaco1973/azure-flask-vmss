@@ -1,6 +1,6 @@
 # Cosmos DB Account Configuration
 resource "azurerm_cosmosdb_account" "candidate_account" {
-  name                = "candidates-${substr(data.azurerm_client_config.current.subscription_id, 0, 6)}" 
+  name                = "candidates-${substr(data.azurerm_client_config.current.subscription_id, 0, 8)}" 
   # Unique Cosmos DB account name using a substring of the subscription ID
   location            = azurerm_resource_group.flask-vmss.location # Azure region
   resource_group_name = azurerm_resource_group.flask-vmss.name     # Resource group for the Cosmos DB account
