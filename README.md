@@ -65,11 +65,13 @@ Terraform has been successfully initialized!
 [...]
 ```
 
-The build is divided in three phases:
+### Build Process Overview
 
-1.  Phase 1 builds the network configuration and project resource group.
-2.  Phase 2 builds the flask services into a VM image using packer and places the image in the resource group created in Phase 1.
-3.  Phase 3 creates the VM Scale Set configuration using the image created in Phase 2 and sets the scaling policy.
+The build process is divided into three phases:
+
+1. **Phase 1:** Configure the network and create the project resource group.
+2. **Phase 2:** Build the Flask services into a VM image using Packer and place the image in the resource group created in Phase 1.
+3. **Phase 3:** Create the VM Scale Set (VMSS) configuration using the image from Phase 2 and define the scaling policy.
 
 ## Tour of Build Output in the Azure Console
 
