@@ -168,3 +168,21 @@ resource "azurerm_bastion_host" "bastion-host" {
     public_ip_address_id = azurerm_public_ip.bastion-ip.id            # Public IP associated with the Bastion host
   }
 }
+
+# Associate NSG with Flask app subnet
+resource "azurerm_subnet_network_security_group_association" "flask-app-nsg-assoc" {
+  subnet_id                 = azurerm_subnet.flask-app-subnet.id
+  network_security_group_id = azurerm_network_security_group.flask-app-nsg.id
+}
+
+# Associate NSG with Application Gateway subnet
+resource "azurerm_subnet_network_security_group_association" "app-gateway-nsg-assoc" {
+  subnet_id                 = azurerm_subnet.app-gateway-subnet.id
+  network_security_group_id = azurerm_network_security_group.flask-app-gateway.id
+}
+
+# Associate NSG with Bastion subnet
+resource "azurerm_subnet_network_security_group_association" "bastion-nsg-assoc" {
+  subnet_id                 = azurerm_subnet.bastion-subnet.id
+  network_security_group_id = azurerm_network_security_group.bastion-nsg.id
+}
