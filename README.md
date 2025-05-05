@@ -1,6 +1,6 @@
 # Azure VM Scale Set (VMSS) Example
 
-This is Part 2 of the Series: [Scaling in the Cloud: AWS Auto Scaling, Azure VMSS, and GCP MIGs](https://youtu.be/i_T7Wu_mJ1k).
+This is Part 2 of the Series: [Scaling in the Cloud: AWS Auto Scaling, Azure VMSS, and GCP MIGs](https://youtu.be/fogz73FXJEA).
 
 ## Introduction
 
