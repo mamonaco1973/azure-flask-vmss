@@ -12,6 +12,7 @@ resource "azurerm_subnet" "flask-app-subnet" {
   resource_group_name  = azurerm_resource_group.flask-vmss.name       # Resource group for the subnet
   virtual_network_name = azurerm_virtual_network.flask-app-vnet.name  # Parent virtual network name
   address_prefixes     = ["10.0.0.0/25"]                              # Address prefix for the subnet
+  default_outbound_access_enabled = false
 }
 
 # Define a subnet for the application gateway
@@ -20,6 +21,7 @@ resource "azurerm_subnet" "app-gateway-subnet" {
   resource_group_name  = azurerm_resource_group.flask-vmss.name       # Resource group for the subnet
   virtual_network_name = azurerm_virtual_network.flask-app-vnet.name  # Parent virtual network name
   address_prefixes     = ["10.0.0.128/25"]                            # Address prefix for the subnet
+  default_outbound_access_enabled = false
 }
 
 # Define the Azure Bastion subnet
@@ -28,6 +30,7 @@ resource "azurerm_subnet" "bastion-subnet" {
   resource_group_name  = azurerm_resource_group.flask-vmss.name       # Resource group for the subnet
   virtual_network_name = azurerm_virtual_network.flask-app-vnet.name  # Parent virtual network name
   address_prefixes     = ["10.0.1.0/25"]                              # Address prefix for the subnet
+  default_outbound_access_enabled = false
 }
 
 # Define a network security group for the Flask app
