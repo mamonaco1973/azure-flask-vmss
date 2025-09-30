@@ -197,8 +197,8 @@ resource "azurerm_subnet_network_security_group_association" "bastion-nsg-assoc"
 # Public IP for NAT Gateway
 resource "azurerm_public_ip" "nat_gateway_pip" {
   name                = "nat-gateway-pip"
-  location            = azurerm_resource_group.ad.location
-  resource_group_name = azurerm_resource_group.ad.name
+  location            = azurerm_resource_group.flask-vmss.location
+  resource_group_name = azurerm_resource_group.flask-vmss.name
   allocation_method   = "Static"
   sku                 = "Standard"
 }
@@ -206,8 +206,8 @@ resource "azurerm_public_ip" "nat_gateway_pip" {
 # NAT Gateway Resource
 resource "azurerm_nat_gateway" "vm_nat_gateway" {
   name                = "vm-nat-gateway"
-  location            = azurerm_resource_group.ad.location
-  resource_group_name = azurerm_resource_group.ad.name
+  location            = azurerm_resource_group.flask-vmss.location
+  resource_group_name = azurerm_resource_group.flask-vmss.name
   sku_name            = "Standard"
   idle_timeout_in_minutes = 10
 }
