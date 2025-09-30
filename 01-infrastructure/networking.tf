@@ -186,3 +186,38 @@ resource "azurerm_subnet_network_security_group_association" "bastion-nsg-assoc"
   subnet_id                 = azurerm_subnet.bastion-subnet.id
   network_security_group_id = azurerm_network_security_group.bastion-nsg.id
 }
+
+# --------------------------------------------------------------------------------------------------
+# NAT Gateway: Public IP, Gateway, and Associations
+# --------------------------------------------------------------------------------------------------
+
+# Public IP for NAT Gateway
+resource "azurerm_public_ip" "nat_gateway_pip" {
+  name                = "nat-gateway-pip"
+  location            = azurerm_resource_group.ad.location
+  resource_group_name = azurerm_resource_group.ad.name
+  allocation_method   = "Static"
+  sku                 = "Standard"
+}
+
+# NAT Gateway Resource
+resource "azurerm_nat_gateway" "vm_nat_gateway" {
+  name                = "vm-nat-gateway"
+  location            = azurerm_resource_group.ad.location
+  resource_group_name = azurerm_resource_group.ad.name
+  sku_name            = "Standard"
+  idle_timeout_in_minutes = 10
+}
+
+# Associate Public IP with NAT Gateway
+resource "azurerm_nat_gateway_public_ip_association" "nat_gw_pip_assoc" {
+  nat_gateway_id       = azurerm_nat_gateway.vm_nat_gateway.id
+  public_ip_address_id = azurerm_public_ip.nat_gateway_pip.id
+}
+
+# Associate NAT Gateway with VM Subnet
+resource "azurerm_subnet_nat_gateway_association" "flask_nat_assoc" {
+  subnet_id      = azurerm_subnet.flask-app-subnet.id
+  nat_gateway_id = azurerm_nat_gateway.vm_nat_gateway.id
+}
+
