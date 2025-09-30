@@ -223,4 +223,3 @@ resource "azurerm_subnet_nat_gateway_association" "flask_nat_assoc" {
   subnet_id      = azurerm_subnet.flask-app-subnet.id
   nat_gateway_id = azurerm_nat_gateway.vm_nat_gateway.id
 }
-
