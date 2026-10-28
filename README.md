@@ -1,191 +1,130 @@
-# Azure VM Scale Set (VMSS) Example
+# Flask Microservice on an Azure VM Scale Set
 
-This is Part 2 of the Series: [Scaling in the Cloud: AWS Auto Scaling, Azure VMSS, and GCP MIGs](https://youtu.be/fogz73FXJEA).
+Part 2 of the series
+[Scaling in the Cloud: AWS Auto Scaling, Azure VMSS, and GCP MIGs](https://youtu.be/fogz73FXJEA).
+A small Flask service that stores candidates in **Cosmos DB** is baked into
+a managed image with **Packer**, then run behind an **Application Gateway**
+in a **VM Scale Set** that adds and removes instances on CPU load.
 
-## Introduction
+![Scale set in the portal](flask-vmss.png)
 
-In this video, we will demonstrate the deployment of Flask-based microservices within an **Azure Virtual Machine Scale Set (VMSS)** while covering the following tasks:
+| Piece | Where | Role |
+|---|---|---|
+| **Flask_Packer_Image** | managed image in `flask-vmss-rg` | Ubuntu 24.04 + the Flask app under gunicorn (systemd), `stress` for load tests |
+| **flask-vmss** | `flask-app-subnet`, zones 1 and 2 | `Standard_B1s` instances from the newest image, 2 to 4; automatic upgrades; application health extension; system-assigned managed identity |
+| **flask-app-gateway** | `app-gateway-subnet` | `Standard_v2`, HTTP 80, forwarding to the scale set on 8000; probe `/gtg` |
+| **flask-vmss-autoscale** | `flask-vmss-rg` | scale-out and scale-in rules on `Percentage CPU` |
+| **Cosmos DB** | Central US | serverless account `candidates-<id>`, `CandidateDatabase` / `Candidates`; the scale set's identity has a custom data role |
+| **Azure Bastion** | `AzureBastionSubnet` | SSH to the instances from the portal |
 
-- **Deploy Flask-based microservices** on Azure VMs.
-- **Utilize CosmosDB** as a document database to store microservice data.
-- **Create a VM Image** of the deployed services using Packer.
-- **Configure the Virtual Machine Scale Set** to enable automatic scalability using `Terraform`
-- **Simulate load** to test scalability and trigger scaling events.
-- **Clean up resources** by decommissioning all infrastructure provisioned during the process.
+## Architecture
 
-![Azure diagram](azure-flask-vmss.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="architecture-dark.svg">
+  <img alt="Packer builds Flask_Packer_Image from Canonical's Ubuntu 24.04 image with the Flask service, gunicorn and stress. flask-vmss, a scale set of two to four Standard_B1s instances across zones 1 and 2, runs that image. Clients reach the service through flask-app-gateway on port 80, which forwards to port 8000 and probes /gtg. Autoscale rules on Percentage CPU add or remove an instance, the service reads and writes a serverless Cosmos DB container with its managed identity, and Azure Bastion gives SSH to the instances." src="architecture-light.svg">
+</picture>
+
+Regenerate with `python3 make_diagram.py`.
+
+- **`01-infrastructure/`**: the resource group (`flask-vmss-rg`), the VNet
+  (`flask-app-vnet`) with the app, gateway and Bastion subnets, the NSGs,
+  the Application Gateway, Bastion, the SSH key resource, and Cosmos DB.
+- **`02-packer/`**: `flask_image.pkr.hcl`, `install.sh` and the app in
+  `scripts/`, plus `main.tf`, which builds the scale set, its autoscale
+  setting and its Cosmos DB role.
+- **`build/`**: the per-phase scripts `apply.sh` and `destroy.sh` call, in
+  Bash and PowerShell.
+
+## How it builds
+
+1. **Phase 1**: Terraform builds the network, gateway, Bastion and Cosmos DB.
+2. **Phase 2**: Packer builds `Flask_Packer_Image-<timestamp>`.
+3. **Phase 3**: Terraform finds the newest image and creates the scale set
+   with 0 instances, restarts it, then applies again with 2.
+
+## How it scales
+
+| Rule | Condition | Action |
+|---|---|---|
+| Scale out | average `Percentage CPU` **above 60%** over 1 minute | add 1 instance, 1-minute cooldown |
+| Scale in | average `Percentage CPU` **below 60%** over 5 minutes | remove 1 instance, 1-minute cooldown |
+
+The scale set stays between 2 and 4 instances.
+
+## API
+
+| Method | Path | Returns |
+|---|---|---|
+| GET | `/gtg` | 200; with `?details=true`, connection and instance details |
+| GET | `/candidate/<name>` | the candidate, or 404 |
+| POST | `/candidate/<name>` | `{"CandidateName": <name>}`, or 500 |
+| GET | `/candidates` | every candidate, or 404 |
+
+## Network security
+
+```
+internet ─80─▶ flask-app-gateway ─8000─▶ flask-vmss
+internet ─443─▶ Azure Bastion ─22─▶ flask-vmss
+```
+
+`flask-app-nsg` allows 22 and 8000 from anywhere; `flask-app-gateway-nsg`
+allows 80 and the gateway's management range (65200-65535).
 
 ## Prerequisites
 
 * [An Azure Account](https://portal.azure.com/)
-* [Install AZ CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli) 
-* [Install Latest Terraform](https://developer.hashicorp.com/terraform/install)
-* [Install Latest Packer](https://developer.hashicorp.com/packer/install)
+* [Install AZ CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli)
+* [Install Terraform](https://developer.hashicorp.com/terraform/install)
+* [Install Packer](https://developer.hashicorp.com/packer/install)
 
-If this is your first time watching our content, we recommend starting with this video: [Azure + Terraform: Easy Setup](https://www.youtube.com/watch?v=wwi3kVgYNOk). It provides a step-by-step guide to properly configure Terraform, Packer, and the AZ CLI.
+`check_env.sh` expects a service principal in `ARM_CLIENT_ID`,
+`ARM_CLIENT_SECRET`, `ARM_SUBSCRIPTION_ID` and `ARM_TENANT_ID`; Packer uses
+the same credentials. If this is your first time watching our content, we
+recommend starting with this video:
+[Azure + Terraform: Easy Setup](https://www.youtube.com/watch?v=wwi3kVgYNOk).
 
-## Download this Repository
+## Deploy
 
 ```bash
 git clone https://github.com/mamonaco1973/azure-flask-vmss.git
 cd azure-flask-vmss
+./apply.sh       # or .\apply.ps1
 ```
 
-## Build the Code
+Everything deploys to Central US. `apply.sh` ends by running
+`validate.sh`, which waits for a healthy backend on the gateway and runs the
+smoke test:
 
-Run [check_env](build\check_env.sh) then run [apply](apply.sh).
-
-```bash
-~/azure-flask-vmss$ ./apply.sh
-NOTE: Validating that required commands are found in your PATH.
-NOTE: az is found in the current PATH.
-NOTE: packer is found in the current PATH.
-NOTE: terraform is found in the current PATH.
-NOTE: All required commands are available.
-NOTE: Validating that required environment variables are set.
-NOTE: ARM_CLIENT_ID is set.
-NOTE: ARM_CLIENT_SECRET is set.
-NOTE: ARM_SUBSCRIPTION_ID is set.
-NOTE: ARM_TENANT_ID is set.
-NOTE: All required environment variables are set.
-NOTE: Logging in to Azure using Service Principal...
-NOTE: Successfully logged into Azure.
-NOTE: Building infrastructure phase 1.
-Initializing the backend...
-Initializing provider plugins...
-- Finding latest version of hashicorp/azurerm...
-- Installing hashicorp/azurerm v4.14.0...
-- Installed hashicorp/azurerm v4.14.0 (signed by HashiCorp)
-Terraform has created a lock file .terraform.lock.hcl to record the provider
-selections it made above. Include this file in your version control repository
-so that Terraform can guarantee to make the same selections by default when
-you run "terraform init" in the future.
-
-Terraform has been successfully initialized!
-[...]
 ```
-
-### Build Process Overview
-
-The build process is divided into three phases:
-
-1. **Phase 1:** Configure the network and create the project resource group.
-2. **Phase 2:** Build the Flask services into a VM image using Packer and place the image in the resource group created in Phase 1.
-3. **Phase 3:** Create the VM Scale Set (VMSS) configuration using the image from Phase 2 and define the scaling policy.
-
-## Tour of Build Output in the Azure Console
-
-![Azure VMSS](flask-vmss.png)
-
-## Test the Services
-
-We will test the services with [Postman](https://www.postman.com/downloads/). First run [validate.sh](validate.sh) to get the base URL for the build.
-
-```bash
-~/azure-flask-vmss$ ./validate.sh
-NOTE: Waiting for at least one healthy backend server...
 NOTE: At least one healthy backend server found!
-NOTE: Health check endpoint is http://flask-app-vmss-e4dee2.centralus.cloudapp.azure.com/gtg?details=true
+NOTE: Health check endpoint is http://<gateway-ip>/gtg?details=true
 ✓ good to go passed
 ✓ insert passed
 ✓ verification passed
 ✓ candidate list passed
 ```
 
-Copy the value from validate `http://flask-alb-1771338256.us-east-2.elb.amazonaws.com/gtg?details=true` and paste into Postman.
+## Try it
 
-![Postman](postman.png)
+1. Open the `/gtg?details=true` URL in Postman (or `curl`) a few times: the
+   instance changes as the gateway spreads requests.
 
-### HTTP Endpoint Summary
+   ![Postman](postman.png)
 
-#### `/gtg` (GET)
-- **Purpose**: Health check.
-- **Response**: 
-  - `{"connected": "true", "instance-id": <instance_id>}` (if `details` query parameter is provided).
-  - 200 OK with no body otherwise.
+2. Load the scale set: connect to an instance through Bastion and run
+   `stress --cpu 2 --timeout 600`. Within a couple of minutes the scale set
+   adds an instance; about five minutes after the load stops, it removes
+   one.
 
-#### `/candidate/<name>` (GET)
-- **Purpose**: Retrieve a candidate by name.
-- **Response**: 
-  - Candidate details (JSON) with status `200`.
-  - `"Not Found"` with status `404` if no candidate is found.
-
-#### `/candidate/<name>` (POST)
-- **Purpose**: Add or update a candidate by name.
-- **Response**: 
-  - `{"CandidateName": <name>}` with status `200`.
-  - `"Unable to update"` with status `500` on failure.
-
-#### `/candidates` (GET)
-- **Purpose**: Retrieve all candidates.
-- **Response**: 
-  - List of candidates (JSON) with status `200`.
-  - `"Not Found"` with status `404` if no candidates exist.
-
-## Simulate Load
-
-We will access the VM instances and execute the `stress` command to simulate a high CPU load. This process will demonstrate the system's ability to dynamically scale up by adding VM instances in response to increased CPU utilization and subsequently scale down by removing nodes as the load decreases
-
-
-### Capacity Configuration
-
-| **Parameter** | **Value**                                | **Description**                                 |
-|---------------|------------------------------------------|-------------------------------------------------|
-| Minimum       | `2`         | Minimum number of instances in the VMSS.       |
-| Default       | `2`            | Default number of instances in the VMSS.       |
-| Maximum       | `4`                                     | Maximum number of instances in the VMSS.       |
-
-### Scaling Rules
-
-#### Scale-Up Rule
-- Triggered when CPU usage exceeds a specified threshold.
-- **Trigger Conditions**:
-  - **Metric Name**: `Percentage CPU`
-  - **Operator**: `GreaterThan`
-  - **Threshold**: `60` (Percentage CPU)
-  - **Statistic**: `Average`
-  - **Time Grain**: `1 minute`
-  - **Time Window**: `1 minute`
-  - **Time Aggregation**: `Average`
-- **Scale Action**:
-  - **Direction**: Increase
-  - **Type**: `ChangeCount` (Adjust by a fixed count)
-  - **Value**: `1` (Add one instance)
-  - **Cooldown Period**: `1 minute`
-
-#### Scale-Down Rule
-- Triggered when CPU usage falls below a specified threshold.
-- **Trigger Conditions**:
-  - **Metric Name**: `Percentage CPU`
-  - **Operator**: `LessThan`
-  - **Threshold**: `60` (Percentage CPU)
-  - **Statistic**: `Average`
-  - **Time Grain**: `5 minutes`
-  - **Time Window**: `5 minutes`
-  - **Time Aggregation**: `Average`
-- **Scale Action**:
-  - **Direction**: Decrease
-  - **Type**: `ChangeCount` (Adjust by a fixed count)
-  - **Value**: `1` (Remove one instance)
-  - **Cooldown Period**: `1 minute`
-
-### Key Features
-- **Dynamic Scaling**: The scaling policy dynamically adjusts the number of instances in the VM Scale Set based on CPU utilization.
-- **Efficient Resource Utilization**: Instances are added when CPU usage is high and removed when demand decreases.
-- **Quick Response Time**: The cooldown period ensures scaling actions are executed quickly after the conditions are met.
-
-## Run the "destroy" script when you are done
+## Teardown
 
 ```bash
-~/azure-flask-vmss$ ./destroy.sh
-NOTE: Deleting the VMSS.
-NOTE: Using the latest image (Flask_Packer_Image-20250107162801) in flask-app-vmss
-Initializing the backend...
-Initializing provider plugins...
-- Reusing previous version of hashicorp/azurerm from the dependency lock file
-- Using previously-installed hashicorp/azurerm v4.14.0
-
-Terraform has been successfully initialized!
-
-[...]
+./destroy.sh     # or .\destroy.ps1: destroys the scale set, deletes the images, then destroys the infrastructure
 ```
+
+## Notes
+
+- **Lab only.** The gateway is plain HTTP, and `flask-app-nsg` opens 22 and
+  8000 to the internet.
+- `01-infrastructure/keys/` holds an SSH key pair committed to this public
+  repository; generate your own for anything more.
