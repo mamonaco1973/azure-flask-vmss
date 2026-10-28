@@ -126,5 +126,6 @@ NOTE: Health check endpoint is http://<gateway-ip>/gtg?details=true
 
 - **Lab only.** The gateway is plain HTTP, and `flask-app-nsg` opens 22 and
   8000 to the internet.
-- `01-infrastructure/keys/` holds an SSH key pair committed to this public
-  repository; generate your own for anything more.
+- `01-infrastructure/keys/` holds the scale set's SSH key pair, committed to
+  this public repository, and port 22 is open: anyone with the private key
+  can sign in as `azureuser`. Generate your own key pair for anything more.
